@@ -59,6 +59,19 @@ const endScreen = document.getElementById('end-screen');
 const endMessage = document.getElementById('end-message');
 const finalScore = document.getElementById('final-score');
 const replayBtnFinal = document.getElementById('replay-btn-final');
+const factPopup = document.getElementById('fact-popup');
+const factText = document.getElementById('fact-text');
+const closeFactBtn = document.getElementById('close-fact-btn');
+
+const waterFacts = [
+  "771 million people lack access to clean water.",
+  "Every $40 can bring clean water to one person.",
+  "Clean water improves health, education, and income.",
+  "Women and girls spend 200 million hours every day collecting water.",
+  "Access to clean water can reduce water-related diseases by 21%."
+];
+
+let pendingLevelAdvance = false;
 
 function loadLevel(idx) {
   const level = LEVELS[idx];
@@ -210,14 +223,8 @@ function submitPath() {
       messageDiv.textContent = '✅ Success! You purified the stream!';
       score += 10 * (levelIndex + 1);
       updateStats();
-      if (levelIndex < LEVELS.length - 1) {
-        levelIndex++;
-        setTimeout(() => {
-          loadLevel(levelIndex);
-        }, 1000);
-      } else {
-        endGame(true);
-      }
+      showLevelFact(); // Show fact before loading next level
+      // Level advance now handled after closing fact popup
     }
   } else {
     messageDiv.textContent = '💧 You must reach the goal tile!';
@@ -260,6 +267,66 @@ function endGame(success) {
   showEndScreen(success);
 }
 
+function showLevelFact() {
+  const fact = waterFacts[Math.floor(Math.random() * waterFacts.length)];
+  factText.textContent = fact;
+  factPopup.style.display = 'flex';
+  pendingLevelAdvance = true;
+}
+
+closeFactBtn.onclick = function() {
+  factPopup.style.display = 'none';
+  if (pendingLevelAdvance) {
+    pendingLevelAdvance = false;
+    if (levelIndex < LEVELS.length - 1) {
+      levelIndex++;
+      loadLevel(levelIndex);
+    } else {
+      endGame(true);
+    }
+  }
+};
+
+function startTimer() {
+  clearInterval(timerInterval);
+  timerInterval = setInterval(() => {
+    timeLeft--;
+    timeSpan.textContent = timeLeft;
+    if (timeLeft <= 0) {
+      clearInterval(timerInterval);
+      dropsLeft--;
+      updateStats();
+      if (dropsLeft === 0) endGame(false);
+      else resetLevel();
+      messageDiv.textContent = "⏰ Time's up! You lost a life.";
+    }
+  }, 1000);
+}
+
+// Music toggle logic
+const bgMusic = document.getElementById('bg-music');
+const musicToggle = document.getElementById('music-toggle');
+let musicMuted = false;
+
+// Try to play music after first user interaction (for autoplay policy)
+function enableMusicOnInteraction() {
+  if (bgMusic.paused) {
+    bgMusic.volume = 0.5;
+    bgMusic.muted = false;
+    bgMusic.play().catch(() => {});
+  }
+  window.removeEventListener('click', enableMusicOnInteraction);
+  window.removeEventListener('keydown', enableMusicOnInteraction);
+}
+window.addEventListener('click', enableMusicOnInteraction);
+window.addEventListener('keydown', enableMusicOnInteraction);
+
+musicToggle.onclick = function() {
+  musicMuted = !musicMuted;
+  bgMusic.muted = musicMuted;
+  musicToggle.textContent = musicMuted ? '🔇' : '🔊';
+};
+
 // Button events
 resetBtn.onclick = () => {
   if (!gameOver) resetLevel();
@@ -279,6 +346,20 @@ replayBtnFinal.onclick = () => {
   updateStats();
   hideEndScreen();
   loadLevel(levelIndex);
+};
+document.getElementById('share-score-btn').onclick = function() {
+  const shareText = `I just played the Clean Water Game and scored ${score} points! 💧 Learn more about clean water: https://www.charitywater.org/`;
+  if (navigator.share) {
+    navigator.share({
+      title: 'Clean Water Game',
+      text: shareText,
+      url: window.location.href
+    });
+  } else {
+    // Fallback: copy to clipboard
+    navigator.clipboard.writeText(shareText);
+    alert("Score copied! Share it with your friends!");
+  }
 };
 
 // Initial setup
